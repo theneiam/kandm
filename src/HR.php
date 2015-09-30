@@ -2,11 +2,15 @@
 namespace KlausShow;
 
 use Psr\Log\LoggerInterface;
+use KlausShow\Interfaces\Employee;
+use KlausShow\Interfaces\Subject;
+use KlausShow\Interfaces\Employer;
+use KlausShow\Interfaces\Observer;
 
-class HR
+class HR implements Subject, Employer
 {
     /**
-     * @var Human[]
+     * @var Employee[]
      */
     protected $employees = [];
 
@@ -15,63 +19,92 @@ class HR
      */
     protected $logger = null;
 
+    /**
+     * @param LoggerInterface $logger
+     */
     public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
+        $this->employees = [];
     }
 
     /**
-     * @param Human $employee
+     * @param Employee $employee
      */
-    public function hire(Human $employee)
+    public function hire(Employee $employee)
     {
-        $uniqueHash = $this->getEmployeeUniqueHash($employee);
-        $this->setEmployee($employee, $uniqueHash);
-        $employee->notify($this);
+        $this->addEmployee($employee);
+        $this->notify($employee);
     }
 
     /**
-     * @param Human $employee
+     * @param Employee $employee
+     * @return bool
+     */
+    public function isEmployed(Employee $employee)
+    {
+        $hash = $this->createUniqueHash($employee);
+        return isset($this->employees[$hash]);
+    }
+
+    /**
+     * @param Employee $employee
+     * @throws \Exception
+     */
+    public function updateEmployee(Employee $employee)
+    {
+        $hash = $this->createUniqueHash($employee);
+        if (!isset($this->employees[$hash])) {
+            throw new \Exception('Employee not found. Nothing to update');
+        }
+        $oldEmployeeData = $this->employees[$hash];
+        $this->addEmployee($employee);
+        $this->logEpnChangeMessage($employee, $oldEmployeeData['epn']);
+    }
+
+    /**
+     * @param Employee $employee
+     * @param $oldEpn
+     */
+    protected function logEpnChangeMessage(Employee $employee, $oldEpn)
+    {
+        $msgPattern = '%s %s emergency phone number is: %s';
+        $name = $employee->getName();
+        $newEpn = $employee->getEmergencyPhoneNumber();
+        $this->logger->info(sprintf($msgPattern, $name, 'old', $oldEpn));
+        $this->logger->info(sprintf($msgPattern, $name, 'new', $newEpn));
+    }
+
+    /**
+     * @param Observer $observer
+     */
+    public function notify(Observer $observer)
+    {
+        $observer->update($this);
+    }
+
+    /**
+     * @param Employee $employee
      * @return string
      */
-    protected function getEmployeeUniqueHash(Human $employee)
+    protected function createUniqueHash(Employee $employee)
     {
         $hashFields = [
-            $employee->getName(),
-            $employee->getPhoneNumber()
+            'name' => $employee->getName()
         ];
+
         return md5(implode('.', $hashFields));
     }
 
     /**
-     * @param Human $employee
-     * @param $uniqueHash
+     * @param Employee $employee
      */
-    protected function setEmployee(Human $employee, $uniqueHash)
+    protected function addEmployee(Employee $employee)
     {
-        $this->employees[$uniqueHash] = clone $employee;
-    }
-
-    /**
-     * @param Human $employee
-     */
-    public function employeeUpdate(Human $employee)
-    {
-        $uniqueHash = $this->getEmployeeUniqueHash($employee);
-        $currentEmployee = $this->employees[$uniqueHash];
-        $this->setEmployee($employee, $uniqueHash);
-
-        if ($currentEmployee->getSpouse() === null) {
-            $this->logger->info($currentEmployee->getName() . ' had no emergency phone number before');
-        } else {
-            $this->logger->info(
-                'Old ' . $currentEmployee->getName() . ' emergency phone number was ' .
-                $currentEmployee->getSpouse()->getPhoneNumber()
-            );
-        }
-        $this->logger->info(
-            'New ' . $currentEmployee->getName() . ' emergency phone number is ' .
-            $employee->getSpouse()->getPhoneNumber()
-        );
+        $hash = $this->createUniqueHash($employee);
+        $this->employees[$hash] = [
+            'name' => $employee->getName(),
+            'epn' => $employee->getEmergencyPhoneNumber()
+        ];
     }
 }

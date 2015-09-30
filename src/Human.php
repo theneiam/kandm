@@ -1,8 +1,12 @@
 <?php
-
 namespace KlausShow;
 
-class Human
+use KlausShow\Interfaces\Employer;
+use KlausShow\Interfaces\Observer;
+use KlausShow\Interfaces\Subject;
+use KlausShow\Interfaces\Employee;
+
+class Human implements Observer, Subject, Employee
 {
     /**
      * @var string
@@ -15,12 +19,12 @@ class Human
     protected $phoneNumber = '';
 
     /**
-     * @var Human
+     * @var null|Human
      */
     protected $spouse = null;
 
     /**
-     * @var HR
+     * @var null|Employer
      */
     protected $employer = null;
 
@@ -29,23 +33,24 @@ class Human
         $this->name = $name;
         $this->phoneNumber = $phoneNumber;
         $this->spouse = null;
-        $this->employer = null;
+    }
+
+    public function merry(Human $human)
+    {
+        $this->setSpouse($human);
+        $human->setSpouse($this);
     }
 
     /**
-     * @param Human $spouse
+     * @param string $phoneNumber
      */
-    public function setSpouse(Human $spouse)
+    public function setPhoneNumber($phoneNumber)
     {
-        $this->spouse = clone $spouse;
-    }
+        $this->phoneNumber = $phoneNumber;
 
-    /**
-     * @return null|Human
-     */
-    public function getSpouse()
-    {
-        return $this->spouse;
+        if ($this->spouse instanceof Human) {
+            $this->notify($this->spouse);
+        }
     }
 
     /**
@@ -57,45 +62,60 @@ class Human
     }
 
     /**
-     * @param $phoneNumber
+     * @return Human|null
      */
-    public function setPhoneNumber($phoneNumber)
+    public function getSpouse()
     {
-        $this->phoneNumber = $phoneNumber;
-        $this->spouse->notify($this);
+        return $this->spouse;
     }
 
+    /**
+     * @param Human|null $spouse
+     */
+    public function setSpouse(Human $spouse)
+    {
+        $this->spouse = $spouse;
+    }
+
+    /**
+     * @return string
+     */
     public function getName()
     {
         return $this->name;
     }
 
-    public function getEmployer()
+    /**
+     * @return string
+     */
+    public function getEmergencyPhoneNumber()
     {
-        return $this->employer;
+        if ($this->spouse === null) {
+            return '';
+        }
+        return $this->spouse->getPhoneNumber();
     }
 
     /**
-     * @param Human $human
+     * @param Subject $subject
      */
-    public function merry(Human $human)
+    public function update(Subject $subject)
     {
-        $this->setSpouse($human);
-        $human->setSpouse($this);
+        if ($subject instanceof Employer) {
+            $this->employer = $subject;
+        } else {
+            $this->setSpouse($subject);
+            if ($this->employer instanceof Employer) {
+                $this->employer->updateEmployee($this);
+            }
+        }
     }
 
-    public function notify($observable)
+    /**
+     * @param Observer $observer
+     */
+    public function notify(Observer $observer)
     {
-        if ($observable instanceof Human) {
-            if ($this->employer === null) {
-                throw new \Exception('Go find a job!');
-            }
-            $this->setSpouse($observable);
-            $this->employer->employeeUpdate($this);
-        }
-
-        if ($observable instanceof HR) {
-            $this->employer = $observable;
-        }
+        $observer->update($this);
     }
 }
