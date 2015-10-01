@@ -1,16 +1,13 @@
 <?php
 namespace KlausShow;
 
-use Psr\Log\LoggerInterface;
-use KlausShow\Interfaces\Employee;
-use KlausShow\Interfaces\Subject;
-use KlausShow\Interfaces\Employer;
-use KlausShow\Interfaces\Observer;
 
-class HR implements Subject, Employer
+use Psr\Log\LoggerInterface;
+
+class HR
 {
     /**
-     * @var Employee[]
+     * @var Human[]
      */
     protected $employees = [];
 
@@ -29,44 +26,48 @@ class HR implements Subject, Employer
     }
 
     /**
-     * @param Employee $employee
+     * @param Human $employee
      */
-    public function hire(Employee $employee)
+    public function hire(Human $employee)
     {
         $this->addEmployee($employee);
         $this->notify($employee);
     }
 
     /**
-     * @param Employee $employee
-     * @return bool
+     * @param Human $employee
      */
-    public function isEmployed(Employee $employee)
+    protected function addEmployee(Human $employee)
     {
-        $hash = $this->createUniqueHash($employee);
-        return isset($this->employees[$hash]);
+        $hash = $this->createEmployeeHash($employee);
+        $this->employees[$hash] = [
+            'name' => $employee->getName(),
+            'epn' => $employee->getEmergencyPhoneNumber()
+        ];
     }
 
     /**
-     * @param Employee $employee
+     * @param Human $employee
      * @throws \Exception
      */
-    public function updateEmployee(Employee $employee)
+    public function updateEmployee(Human $employee)
     {
-        $hash = $this->createUniqueHash($employee);
+        $hash = $this->createEmployeeHash($employee);
+
         if (!isset($this->employees[$hash])) {
             throw new \Exception('Employee not found. Nothing to update');
         }
+
         $oldEmployeeData = $this->employees[$hash];
         $this->addEmployee($employee);
         $this->logEpnChangeMessage($employee, $oldEmployeeData['epn']);
     }
 
     /**
-     * @param Employee $employee
+     * @param Human $employee
      * @param $oldEpn
      */
-    protected function logEpnChangeMessage(Employee $employee, $oldEpn)
+    protected function logEpnChangeMessage(Human $employee, $oldEpn)
     {
         $msgPattern = '%s %s emergency phone number is: %s';
         $name = $employee->getName();
@@ -76,35 +77,20 @@ class HR implements Subject, Employer
     }
 
     /**
-     * @param Observer $observer
-     */
-    public function notify(Observer $observer)
-    {
-        $observer->update($this);
-    }
-
-    /**
-     * @param Employee $employee
+     * @param Human $employee
      * @return string
      */
-    protected function createUniqueHash(Employee $employee)
+    protected function createEmployeeHash(Human $employee)
     {
-        $hashFields = [
-            'name' => $employee->getName()
-        ];
-
-        return md5(implode('.', $hashFields));
+        return spl_object_hash($employee);
     }
 
     /**
-     * @param Employee $employee
+     * @param Human $employee
+     * @throws \Exception
      */
-    protected function addEmployee(Employee $employee)
+    public function notify(Human $employee)
     {
-        $hash = $this->createUniqueHash($employee);
-        $this->employees[$hash] = [
-            'name' => $employee->getName(),
-            'epn' => $employee->getEmergencyPhoneNumber()
-        ];
+        $employee->update($this);
     }
 }

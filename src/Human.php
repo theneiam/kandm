@@ -1,12 +1,8 @@
 <?php
 namespace KlausShow;
 
-use KlausShow\Interfaces\Employer;
-use KlausShow\Interfaces\Observer;
-use KlausShow\Interfaces\Subject;
-use KlausShow\Interfaces\Employee;
 
-class Human implements Observer, Subject, Employee
+class Human
 {
     /**
      * @var string
@@ -35,6 +31,9 @@ class Human implements Observer, Subject, Employee
         $this->spouse = null;
     }
 
+    /**
+     * @param Human $human
+     */
     public function merry(Human $human)
     {
         $this->setSpouse($human);
@@ -47,10 +46,7 @@ class Human implements Observer, Subject, Employee
     public function setPhoneNumber($phoneNumber)
     {
         $this->phoneNumber = $phoneNumber;
-
-        if ($this->spouse instanceof Human) {
-            $this->notify($this->spouse);
-        }
+        $this->notify($this->spouse);
     }
 
     /**
@@ -97,24 +93,27 @@ class Human implements Observer, Subject, Employee
     }
 
     /**
-     * @param Subject $subject
+     * @param Human|HR $subject
+     * @throws \Exception
      */
-    public function update(Subject $subject)
+    public function update($subject)
     {
-        if ($subject instanceof Employer) {
-            $this->employer = $subject;
-        } else {
+        if ($subject instanceof Human) {
             $this->setSpouse($subject);
-            if ($this->employer instanceof Employer) {
+            if ($this->employer instanceof HR) {
                 $this->employer->updateEmployee($this);
             }
+        } elseif ($subject instanceof HR) {
+            $this->employer = $subject;
+        } else {
+            throw new \Exception('Unknown subject instance.');
         }
     }
 
     /**
-     * @param Observer $observer
+     * @param Human $observer
      */
-    public function notify(Observer $observer)
+    public function notify(Human $observer)
     {
         $observer->update($this);
     }
